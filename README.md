@@ -92,6 +92,7 @@ Los límites honestos de esto (qué prueba y qué no prueba una firma) están en
 | `@dotrino/sso-client` (este repo) | Verificar la prueba **sin** intermediario, para quien tiene frontend propio. |
 | [`dotrino-profile-app`](../dotrino-profile-app/) | Donde el usuario ve **dónde se usó su identidad** y corta el acceso de una aplicación. |
 | [`@dotrino/verifier`](../dotrino-verifier/) | Respaldo de correo/redes por terceros firmantes. Es lo que convierte un correo *declarado* en un correo *respaldado*. |
+| [`dotrino-ad-integration`](../dotrino-ad-integration/) | **El camino inverso**: la empresa (Active Directory) respalda al usuario, y Dotrino confía en ella. Aquí es Dotrino quien respalda al usuario ante terceros. |
 
 ## 6. Documentación
 
