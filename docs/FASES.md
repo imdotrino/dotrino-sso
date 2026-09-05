@@ -2,6 +2,24 @@
 
 > Complementa a [`DISENO.md`](./DISENO.md). Estado: **nada implementado**.
 
+## Orden acordado con el dueño (2026-09-05)
+
+Las fases de aquí siguen valiendo tal cual, pero **no son las primeras de la cola**.
+El dueño fijó tres direcciones y este orden exacto:
+
+| | Qué | Dónde está descrito |
+|---|---|---|
+| 1 | **Entrar en un aparato nuevo** (sesiones del propio ecosistema) | [`dotrino-vault/docs/inicio-de-sesion.md`](../../dotrino-vault/docs/inicio-de-sesion.md) |
+| 2 | **"Entrar con Dotrino"** en aplicaciones ajenas | este documento |
+| 3 | **Entrar a Dotrino con Microsoft / Active Directory** | [`dotrino-ad-integration`](../../dotrino-ad-integration/) |
+
+Encaja sin tocar nada de lo de abajo: la **fase 1** (destinatario y vigencia en el
+sobre) es la misma pieza para las tres, y la **fase 2** (alcances y permiso por
+origen) es la misma pantalla. Lo que se intercala es el **login del ecosistema**
+entre la fase 2 y la 3, porque produce el concepto que aquí faltaba —una sesión con
+vencimiento que se puede cerrar— y porque la fase 4 («dónde se usó mi identidad»)
+debe listar **sesiones y aplicaciones ajenas en una sola pantalla**, no en dos.
+
 ## Corrección de partida
 
 La primera versión de este plan separaba "una fase interna para el ecosistema" y
