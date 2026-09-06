@@ -1,7 +1,8 @@
 # Diseño — `dotrino-sso` (inicio de sesión único con la bóveda del usuario)
 
-> **Estado:** diseño abierto, **sin implementar**. Este documento fija el *qué* y
-> el *cómo*, y deja marcadas las decisiones que faltan (§10).
+> **Estado:** el puente sigue **sin implementar**; la **fase 1 sí está hecha** — la prueba
+> firmada con destinatario y vigencia vive en `@dotrino/identity` 0.83.0 (§4). Este
+> documento fija el *qué* y el *cómo*, y deja marcadas las decisiones que faltan (§10).
 >
 > **Idioma/estilo:** español neutro (tuteo). Fuente de verdad del ecosistema:
 > [`CLAUDE.md`](../../CLAUDE.md) y
@@ -95,18 +96,30 @@ puente depende de ella.
 
 ### 4.1. Forma
 
+> **Implementado el 2026-09-05** en `@dotrino/identity` 0.83.0
+> (`vault/assertion.js`, subpath `@dotrino/identity/assertion`). Lo que sigue describe lo
+> que hay, con **una corrección respecto de la primera versión de este documento**: la
+> prueba **no lleva `cert`**. El certificado es del protocolo aparato↔bóveda —autenticar
+> peticiones—, no de atribuir contenido: quien dice qué llaves firman por una identidad es
+> **el acta**, y lo que la prueba es la **cadena de actas** (`chain`), que ya viaja en
+> cualquier firma del ecosistema. Arrastrar además un papel que no aporta nada era pedirle
+> a cada prueba lo que ya resuelve `verifySignedBy`.
+
 ```jsonc
-// payload firmado por la llave del perfil activo (ECDSA P-256)
+// cuerpo firmado por una llave que el acta del perfil autoriza a firmar
 {
-  "sub":    "<pubkey del perfil, base64url>",  // identificador estable del usuario
+  "v":      1,
+  "op":     "assertion",
+  "sub":    "<profileId: la identidad, no la llave de este aparato>",
   "aud":    "https://app.ejemplo.com",          // PARA QUIÉN vale esta prueba
   "nonce":  "<reto de un solo uso, del que pide>",
   "iat":    1767000000,
-  "exp":    1767000300,                          // corta: ~5 min
+  "exp":    1767000120,                          // corta: 2 min por defecto, tope 5
   "scopes": ["id:whoami", "profile:name"],
-  "claims": { "name": "…", "avatar": "…" },     // solo lo que los alcances permiten
-  "cert":   "<certificado del dispositivo firmado por el master del perfil>"
+  "claims": { "name": "…" }                      // solo lo que los alcances permiten
 }
+// y junto a él, lo de siempre en una firma del ecosistema:
+// { signature, publickey (quién firmó), chain (la cadena de actas que lo autoriza) }
 ```
 
 Reglas:
@@ -118,17 +131,22 @@ Reglas:
   prueba a *esta* sesión de inicio y no a otra.
 - **`exp` corto** (minutos). Es lo que hace barata la revocación: no hay nada que
   invalidar, solo se deja de renovar.
-- **`cert`** encadena la firma del dispositivo al *master* del perfil (modelo del
-  acta ya vigente en la bóveda), de modo que quien verifica comprueba la cadena
-  sin conocer de antemano ese dispositivo.
+- **`chain`** encadena la firma hasta el génesis del perfil, de modo que quien verifica
+  comprueba que ese aparato firma por esa identidad sin conocerlo de antemano. Y `sub`
+  tiene que coincidir con el `profileId` que sale de la cadena: si no, la prueba diría la
+  verdad sobre quién la firmó y una mentira sobre de quién es.
+- **El tope de vigencia lo comprueba también quien recibe.** Fiarse del `exp` que puso el
+  emisor es fiarse de su buena fe, y una prueba de un año es una credencial al portador.
 
 ### 4.2. API (en `@dotrino/identity`)
 
 ```ts
-// lado que pide
-requestAssertion({ audience, nonce, scopes }): Promise<Assertion>
-// lado que recibe
-verifyAssertion(assertion, { audience, nonce }): Promise<VerifiedIdentity>
+// lado que pide (necesita la bóveda: firma)
+id.requestAssertion({ audience, nonce, scopes?, ttlMs? }): Promise<Assertion>
+// lado que recibe (módulo PURO: ni iframe ni llaves — lo importa un servidor)
+verifyAssertion(assertion, { audience, nonce, expectedProfileId?, now? }): Promise<VerifiedAssertion>
+// y el reto lo genera quien pide:
+newAssertionNonce(): string
 ```
 
 `verifyAssertion` falla si el destinatario no coincide, si el reto no coincide, si

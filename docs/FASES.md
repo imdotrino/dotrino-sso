@@ -32,13 +32,32 @@ por el objetivo, no por una preparación que dentro no se nota.
 Lo único de la lista que además arregla algo real hoy es el **destinatario en el
 sobre** (fase 1).
 
-## Fase 1 — destinatario y vigencia en el sobre firmado
+## Fase 1 — destinatario y vigencia en el sobre firmado ✅ HECHA (2026-09-05)
 
 **Repo:** `dotrino-identity` (+ `dotrino-vault`)
 
 - `requestAssertion({ audience, nonce, scopes })` y `verifyAssertion()`.
 - `aud`, `nonce`, `iat`, `exp` obligatorios; sin modo permisivo al verificar.
 - Cadena al certificado de dispositivo del acta.
+
+**Está en `@dotrino/identity` 0.83.0** (`vault/assertion.js`, subpath
+`@dotrino/identity/assertion`), con 15 pruebas. Dos correcciones respecto de lo que decía
+este plan, ambas anotadas en [`DISENO.md` §4](./DISENO.md): la prueba lleva la **cadena de
+actas**, no un `cert` (el certificado autentica peticiones aparato↔bóveda, no atribuye
+contenido), y el **tope de vigencia lo comprueba también quien recibe**.
+
+**Cableado (el orden lo eligió el dueño: geo primero).** Hecho en **geo** el mismo día
+(cliente `@dotrino/geo` 0.9.0 + el servicio): el pin lleva `aud` sacado del `baseUrl`, y el
+índice no arranca sin `GEO_AUDIENCE` — comprobado en producción, un pin firmado para otro
+índice se rechaza. **Falta reputación y el proxio**, y ahí el cruce sigue abierto.
+
+Dos cosas que enseña ese cableado, y valen para los que quedan:
+
+- **Lo que se publica no es una prueba.** Un pin o una atestación se firman y se sueltan:
+  no hay quien emita un reto, así que llevan `aud` y nada más (`verifySignedFor`). El
+  `nonce` es para la autenticación interactiva, que es el caso del proxio.
+- **La variable va al servicio ANTES que el código.** El despliegue es automático al
+  pushear: geo estuvo caído en bucle de reinicio hasta que se puso `GEO_AUDIENCE`.
 
 **Por qué primero:** sin destinatario no hay nada más — ni permiso con sentido, ni
 puente, porque un sobre sin `aud` es reutilizable ante otro servicio. Y de rebote
