@@ -46,10 +46,11 @@ este plan, ambas anotadas en [`DISENO.md` §4](./DISENO.md): la prueba lleva la 
 actas**, no un `cert` (el certificado autentica peticiones aparato↔bóveda, no atribuye
 contenido), y el **tope de vigencia lo comprueba también quien recibe**.
 
-**Cableado (el orden lo eligió el dueño: geo primero).** Hecho en **geo** el mismo día
-(cliente `@dotrino/geo` 0.9.0 + el servicio): el pin lleva `aud` sacado del `baseUrl`, y el
-índice no arranca sin `GEO_AUDIENCE` — comprobado en producción, un pin firmado para otro
-índice se rechaza. **Falta reputación y el proxio**, y ahí el cruce sigue abierto.
+**Cableado (el orden lo eligió el dueño: geo primero).** Hecho el mismo día en **geo**
+(`@dotrino/geo` 0.9.0) y en **reputación** (`@dotrino/reputation` 0.11.0): lo firmado lleva
+`aud` sacado del `baseUrl`, y ninguno de los dos servicios arranca sin declarar el suyo
+(`GEO_AUDIENCE`, `REP_AUDIENCE`). Comprobado en producción: la misma atestación firmada
+para otro registro se rechaza. **Falta el proxio**, y ahí el cruce sigue abierto.
 
 Dos cosas que enseña ese cableado, y valen para los que quedan:
 
@@ -57,7 +58,12 @@ Dos cosas que enseña ese cableado, y valen para los que quedan:
   no hay quien emita un reto, así que llevan `aud` y nada más (`verifySignedFor`). El
   `nonce` es para la autenticación interactiva, que es el caso del proxio.
 - **La variable va al servicio ANTES que el código.** El despliegue es automático al
-  pushear: geo estuvo caído en bucle de reinicio hasta que se puso `GEO_AUDIENCE`.
+  pushear: geo estuvo caído en bucle de reinicio hasta que se puso `GEO_AUDIENCE`. En
+  reputación se puso primero y no hubo corte.
+- **Cablear el destinatario destapa lo que llevaba roto.** En los dos servicios apareció
+  lo mismo: rutas que verificaban la firma contra la identidad y no contra el aparato, así
+  que desde un segundo aparato de tu cuenta daban «firma inválida». Contar con eso al
+  planear el del proxio.
 
 **Por qué primero:** sin destinatario no hay nada más — ni permiso con sentido, ni
 puente, porque un sobre sin `aud` es reutilizable ante otro servicio. Y de rebote
