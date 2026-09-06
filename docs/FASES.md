@@ -73,9 +73,22 @@ abierto (la protección contra repetición evita el reenvío, no el cruce).
 **Riesgo:** toca el pilar que usan todas las apps. Cambio limpio en los dos lados
 y se publica, sin capa de compatibilidad (fase de desarrollo del ecosistema).
 
-## Fase 2 — alcances y permiso explícito
+## Fase 2 — alcances y permiso explícito ✅ HECHA (2026-09-06)
 
-**Repo:** `dotrino-vault`
+**Repo:** `@dotrino/identity` 0.86.1 (el iframe es quien ve el origen) + `dotrino-profile-app`
+
+Hecha tal como decía el plan, con una corrección de sitio: el permiso vive en **el iframe de
+identidad**, no en el daemon del vault — es quien ve el origen de cada petición, que es el
+único dato que la aplicación no puede falsificar. Lo demás salió igual: `id:whoami` implícito,
+cualquier dato del perfil con permiso guardado por origen, solo se pregunta lo que falta, y
+lo concedido se ve y se retira (`listGrants` / `revokeGrant`, pantalla en
+`profile.dotrino.com/sessions`).
+
+**Lo que aún no está:** la lista de aplicaciones con su LOGO. Se enseña el nombre (el
+subdominio ya lo es) y debajo la dirección entera; importar el catálogo del home ataría el
+iframe a ese repositorio y habría que subirlo cada vez que nace una app.
+
+**Repo (plan original):** `dotrino-vault`
 
 - Alcances `id:whoami`, `profile:name`, `profile:avatar`, `profile:email`,
   `profile:social`.
