@@ -85,7 +85,10 @@ document.getElementById('go').addEventListener('click', async () => {
     const id = await Identity.connect({ vaultUrl: CFG.vault });
     const nonce = newAssertionNonce();
     // El destinatario es ESTE puente: la prueba no sirve ante ningún otro.
-    const assertion = await id.requestAssertion({ audience: CFG.issuer, nonce, scopes: CFG.scopes });
+    // EN NOMBRE DE QUIÉN pedimos. Sin esto, todas las aplicaciones que entran por este
+    // puente se verían en la bóveda como una sola —«Sso»— y el usuario no sabría a quién
+    // le está dejando entrar. El nombre sale del registro, no de la petición.
+    const assertion = await id.requestAssertion({ audience: CFG.issuer, nonce, scopes: CFG.scopes, onBehalfOf: CFG.client.name });
     const r = await fetch(CFG.issuer + '/authorize/complete', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ assertion, nonce, client_id: CFG.client.id, redirect_uri: CFG.redirect_uri, challenge: CFG.challenge })
