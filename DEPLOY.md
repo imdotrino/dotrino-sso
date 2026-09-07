@@ -46,6 +46,31 @@ Su llave de firma y el fichero de aplicaciones. **Nada más**: ni usuarios, ni a
 direcciones IP. Los códigos viven en memoria y vencen en un minuto. Por eso un compromiso de
 este servicio no filtra el directorio de nadie — obliga a rotar la llave y poco más.
 
+## Cómo está desplegado el de Dotrino (2026-09-06)
+
+En el VPS **74.208.11.221**, el mismo que sirve geo y reputación:
+
+```
+~/dotrino-sso            clon del repo (https, es público)
+~/cc-sso.config.cjs      pm2: PORT 8093, SSO_ISSUER, rutas de llave y clientes
+~/.dotrino-sso/          la llave de firma (600) y clients.json
+nginx: /etc/nginx/sites-available/sso.dotrino.com → 127.0.0.1:8093
+```
+
+```bash
+pm2 start ~/cc-sso.config.cjs --update-env && pm2 save
+```
+
+**Falta el DNS y el TLS**: `sso.dotrino.com` todavía resuelve al wildcard de Cloudflare
+(que va a Pages). Hace falta un registro **A → 74.208.11.221 en DNS only (gris)**, igual que
+`geo.dotrino.com`; en cuanto apunte:
+
+```bash
+sudo certbot --nginx -d sso.dotrino.com          # o --expand sobre el cert de proxy2
+```
+
+El certificado actual de esa máquina cubre `geo`, `proxy2` y `reputation`, no `sso`.
+
 ## Autohospedarlo
 
 Es el caso de la línea de empresa: `sso.tuempresa.com`, el mismo código, en tu red, sin nada
