@@ -101,3 +101,25 @@ Los límites honestos de esto (qué prueba y qué no prueba una firma) están en
   autohospedaje, y los límites honestos.
 - [`docs/FASES.md`](./docs/FASES.md) — qué se construye, en qué orden y en qué
   repo cae cada cosa.
+
+---
+
+## 7. Estado (2026-09-06)
+
+**El puente está escrito y probado; falta desplegarlo.** Lo que hay:
+
+| | |
+|---|---|
+| `server/` | el puente OIDC: `/.well-known/openid-configuration`, `/authorize`, `/token`, `/jwks.json`, `/userinfo`. Solo *Authorization Code* con **PKCE S256**; `id_token` firmado en **ES256** con `node:crypto` y ninguna dependencia más. |
+| `src/` | **`@dotrino/sso-client`**: verificar la prueba **sin** intermediario, para quien tiene frontend propio. |
+| `test/` | 10 pruebas: el camino entero (prueba de la bóveda → `code` → `id_token` verificado contra el JWKS), y lo que no puede pasar — un código canjeado dos veces, un PKCE que no cuadra, una URL de retorno por prefijo y una prueba dirigida a otro. |
+| `DEPLOY.md` | variables, registro de aplicaciones y los dos avisos del autohospedaje. |
+
+**Decisión que estaba pendiente** (`docs/DISENO.md` §10) y queda resuelta: el registro de
+aplicaciones es un **fichero declarativo revisado**, no autorregistro abierto. El nombre que
+se guarda es el que el usuario lee en la pantalla de permiso.
+
+**Lo que aún no está:** el servicio desplegado en `sso.dotrino.com` (DNS, systemd/pm2 y el
+reverse proxy), la landing pública (§1.2 de convenciones) y el alta en el catálogo. Y el
+`email` sale **sin `email_verified`**: nadie lo respalda todavía, y decir que sí sería mentir
+justo en el campo que más se usa como clave primaria.

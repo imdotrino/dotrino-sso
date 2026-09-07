@@ -1,0 +1,11 @@
+{
+  "name": "dotrino-sso-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "El puente OpenID Connect: hacia dentro la prueba de la bóveda, hacia fuera un proveedor del montón",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "@dotrino/identity": "0.86.1" },
+  "license": "MIT"
+}

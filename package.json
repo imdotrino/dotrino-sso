@@ -1,0 +1,20 @@
+{
+  "name": "@dotrino/sso-client",
+  "version": "0.1.0",
+  "description": "Entrar con Dotrino sin intermediario: verifica la prueba firmada de la bóveda en tu propio backend",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": { ".": { "import": "./src/index.js" } },
+  "files": ["src", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "node --test \"test/*.test.js\"",
+    "start": "node server/server.js"
+  },
+  "keywords": ["dotrino", "oidc", "openid-connect", "sso", "identity"],
+  "author": "seyacat",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/imdotrino/dotrino-sso.git" },
+  "homepage": "https://sso.dotrino.com/",
+  "peerDependencies": { "@dotrino/identity": ">=0.86.0" },
+  "devDependencies": { "@dotrino/identity": "0.86.1" }
+}

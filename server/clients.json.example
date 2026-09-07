@@ -1,0 +1,7 @@
+{
+  "app-de-ejemplo": {
+    "client_id": "app-de-ejemplo",
+    "name": "App de ejemplo",
+    "redirect_uris": ["https://app.ejemplo.com/callback"]
+  }
+}
