@@ -81,7 +81,10 @@ const decir = (t, mal) => { el.innerHTML = '<p class="' + (mal ? 'err' : '') + '
 document.getElementById('go').addEventListener('click', async () => {
   decir('Preguntando a tu bóveda…');
   try {
-    const { Identity, newAssertionNonce } = await import('https://cdn.jsdelivr.net/npm/@dotrino/identity@0.86.2/+esm');
+    // El pin va por MINOR (`@0.87`): jsDelivr sirve el último parche de esa rama, así que
+    // los arreglos entran solos. La minor sí hay que subirla a mano al usar algo nuevo —
+    // `onBehalfOf` llegó en 0.87 y con el pin anterior se ignoraba en silencio.
+    const { Identity, newAssertionNonce } = await import('https://cdn.jsdelivr.net/npm/@dotrino/identity@0.87/+esm');
     const id = await Identity.connect({ vaultUrl: CFG.vault });
     const nonce = newAssertionNonce();
     // El destinatario es ESTE puente: la prueba no sirve ante ningún otro.
