@@ -81,7 +81,7 @@ const decir = (t, mal) => { el.innerHTML = '<p class="' + (mal ? 'err' : '') + '
 document.getElementById('go').addEventListener('click', async () => {
   decir('Preguntando a tu bóveda…');
   try {
-    const { Identity, newAssertionNonce } = await import('https://cdn.jsdelivr.net/npm/@dotrino/identity@0.86/+esm');
+    const { Identity, newAssertionNonce } = await import('https://cdn.jsdelivr.net/npm/@dotrino/identity@0.86.2/+esm');
     const id = await Identity.connect({ vaultUrl: CFG.vault });
     const nonce = newAssertionNonce();
     // El destinatario es ESTE puente: la prueba no sirve ante ningún otro.
@@ -190,6 +190,7 @@ function createBridge({
             if (!client || !client.redirect_uris?.includes(b.redirect_uri)) return json(res, 400, { error: 'invalid_client' });
 
             const { verifyAssertion } = await import('@dotrino/identity/assertion');
+            const { pubkeyId } = await import('@dotrino/identity/keyid');
             const v = await verifyAssertion(b.assertion, { audience: ISSUER, nonce: b.nonce });
             if (!v.ok) return json(res, 401, { error: 'access_denied', error_description: 'la prueba no vale: ' + v.reason });
 
@@ -197,7 +198,12 @@ function createBridge({
             const code = b64url(crypto.randomBytes(32));
             codes.set(code, {
                 client_id: b.client_id, redirect_uri: b.redirect_uri, challenge: b.challenge,
-                sub: v.profileId, claims: v.claims || {}, scopes: v.scopes || [],
+                // EL `sub` ES LA HUELLA, no la llave entera. La llave serializada arrastra
+                // `ext` y `key_ops` —cómo se exportó, no quién es—, así que un día podría
+                // salir distinta para la misma persona; y el `sub` es justo el campo que un
+                // integrador guarda como clave primaria. La huella es corta y estable.
+                sub: await pubkeyId(v.profileId), pubkey: v.profileId,
+                claims: v.claims || {}, scopes: v.scopes || [],
                 nonceIn: b.nonceIn || '', exp: Date.now() + CODE_TTL_MS
             });
             return json(res, 200, { code });
@@ -218,6 +224,9 @@ function createBridge({
             const now = Math.floor(Date.now() / 1000);
             const payload = {
                 iss: ISSUER, sub: rec.sub, aud: rec.client_id, iat: now, exp: now + TOKEN_TTL_S,
+                // La llave entera va aparte, para quien quiera verificar algo firmado por
+                // esta persona sin tener que pedírsela otra vez.
+                dotrino_pubkey: rec.pubkey,
                 ...(rec.nonceIn ? { nonce: rec.nonceIn } : {}),
                 ...(rec.claims.name ? { name: rec.claims.name } : {}),
                 ...(rec.claims.avatar ? { picture: rec.claims.avatar } : {}),

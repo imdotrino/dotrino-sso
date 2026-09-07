@@ -81,7 +81,12 @@ test('el camino entero: prueba de la bóveda → code → id_token verificable',
   const pub = crypto.createPublicKey({ key: { ...jwk, kty: 'EC' }, format: 'jwk' })
   const claims = verifyJwt(tok.id_token, pub)
   assert.equal(claims.iss, ISSUER)
-  assert.equal(claims.sub, profileId, 'el sub es la identidad, la misma en todas partes')
+  // El `sub` es la HUELLA de la identidad: corta y estable, que es lo que un integrador
+  // va a guardar. La llave entera viaja aparte, para quien la necesite.
+  const { pubkeyId } = await import('@dotrino/identity/keyid')
+  assert.equal(claims.sub, await pubkeyId(profileId), 'el sub es la identidad, la misma en todas partes')
+  assert.match(claims.sub, /^[0-9a-f]{64}$/)
+  assert.equal(claims.dotrino_pubkey, profileId)
   assert.equal(claims.aud, 'app-de-ejemplo')
   assert.equal(claims.nonce, 'n-de-la-app', 'el nonce de la app vuelve en el token')
   p.cierra()
