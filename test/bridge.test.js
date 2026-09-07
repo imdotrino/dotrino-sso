@@ -157,3 +157,23 @@ test('`/authorize` exige cliente conocido, retorno registrado y PKCE', async () 
   assert.equal(await q('client_id=app-de-ejemplo&redirect_uri=' + encodeURIComponent(REDIR) + '&code_challenge_method=S256&code_challenge=' + 'x'.repeat(43)), 200)
   p.cierra()
 })
+
+test('la landing la sirve el propio servicio, y no deja pedir otra cosa', async () => {
+  const p = await puente()
+  const home = await fetch(p.base + '/')
+  assert.equal(home.status, 200)
+  assert.match(home.headers.get('content-type'), /text\/html/)
+  const html = await home.text()
+  // Lenguaje llano (§9.1): «SSO» es argot y no aparece de cara al público.
+  assert.ok(!/\bSSO\b/.test(html.replace(/sso\.dotrino\.com|dotrino-sso|sso-client/g, '')), 'nada de argot en la copy')
+  assert.match(html, /dotrino-topbar/, 'la barra estándar (§5)')
+  assert.match(html, /goat\.dotrino\.com/, 'la analítica del ecosistema (§8)')
+  assert.match(html, /data-lang="en"/, 'bilingüe (§9)')
+
+  assert.equal((await fetch(p.base + '/robots.txt')).status, 200)
+  assert.equal((await fetch(p.base + '/sitemap.xml')).status, 200)
+  // La lista de estáticos es cerrada: no se compone una ruta con lo que venga de fuera.
+  assert.equal((await fetch(p.base + '/../server/server.js')).status, 404)
+  assert.equal((await fetch(p.base + '/clients.json')).status, 404)
+  p.cierra()
+})

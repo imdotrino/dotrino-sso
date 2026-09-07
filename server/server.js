@@ -162,6 +162,29 @@ function createBridge({
         if (url.pathname === '/jwks.json') return json(res, 200, jwks(key));
         if (url.pathname === '/health') return json(res, 200, { ok: true });
 
+        // ---- La landing (CONVENCIONES §1.2). La sirve el propio servicio y no un
+        // estático aparte, para que desplegarla siga siendo el mismo `git pull` que todo
+        // lo demás: una pieza menos que se puede quedar atrás sin que nadie lo note. ----
+        if (req.method === 'GET') {
+            const estatico = {
+                '/': ['index.html', 'text/html; charset=utf-8'],
+                '/index.html': ['index.html', 'text/html; charset=utf-8'],
+                '/icon.svg': ['icon.svg', 'image/svg+xml'],
+                '/og.jpg': ['og.jpg', 'image/jpeg'],
+                '/robots.txt': ['robots.txt', 'text/plain; charset=utf-8'],
+                '/sitemap.xml': ['sitemap.xml', 'application/xml; charset=utf-8']
+            }[url.pathname];
+            if (estatico) {
+                const f = path.join(__dirname, '..', 'web', estatico[0]);
+                // La lista de arriba es cerrada: no se compone una ruta con lo que venga de
+                // fuera, así que no hay forma de pedir un archivo que no esté en ella.
+                if (fs.existsSync(f)) {
+                    res.writeHead(200, { 'content-type': estatico[1], 'cache-control': 'public, max-age=600' });
+                    return res.end(fs.readFileSync(f));
+                }
+            }
+        }
+
         // ---- 1) La aplicación manda aquí al usuario ----
         if (url.pathname === '/authorize' && req.method === 'GET') {
             const clients = loadClients(clientsFile);
