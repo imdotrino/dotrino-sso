@@ -119,7 +119,12 @@ Los límites honestos de esto (qué prueba y qué no prueba una firma) están en
 aplicaciones es un **fichero declarativo revisado**, no autorregistro abierto. El nombre que
 se guarda es el que el usuario lee en la pantalla de permiso.
 
-**Lo que aún no está:** el servicio desplegado en `sso.dotrino.com` (DNS, systemd/pm2 y el
-reverse proxy), la landing pública (§1.2 de convenciones) y el alta en el catálogo. Y el
-`email` sale **sin `email_verified`**: nadie lo respalda todavía, y decir que sí sería mentir
-justo en el campo que más se usa como clave primaria.
+**En vivo desde el 2026-09-06** en `sso.dotrino.com`, con su landing (la sirve el propio
+puente, así que un `git pull` despliega las dos cosas) y en el catálogo del ecosistema.
+Comprobado de punta a punta en producción: `/authorize` → el permiso lo pinta la bóveda →
+`code` → `/token` → `id_token` verificado contra el JWKS.
+
+**Lo que aún no está:** el `email` sale **sin `email_verified`** —nadie lo respalda todavía,
+y decir que sí sería mentir justo en el campo que más se usa como clave primaria— y el
+cierre de sesión global de OIDC no se soporta a propósito: exigiría guardar dónde entraste,
+que es justo lo que este servicio no hace.

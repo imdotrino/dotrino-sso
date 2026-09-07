@@ -99,7 +99,7 @@ iframe a ese repositorio y habría que subirlo cada vez que nace una app.
 - Lista de aplicaciones conocidas (nombre y logo) para que el permiso no muestre
   una dirección cruda.
 
-## Fase 3 — el puente OpenID Connect
+## Fase 3 — el puente OpenID Connect ✅ HECHA (2026-09-06) · en vivo en `sso.dotrino.com`
 
 **Repo:** `dotrino-sso` (este) → `sso.dotrino.com`
 
@@ -114,7 +114,7 @@ iframe a ese repositorio y habría que subirlo cada vez que nace una app.
 
 Con las fases 1 y 2 hechas, el puente es una capa fina: recibe, verifica, emite.
 
-## Fase 4 — dónde se usó mi identidad
+## Fase 4 — dónde se usó mi identidad ✅ HECHA (2026-09-06)
 
 **Repo:** `dotrino-profile-app`
 
@@ -124,7 +124,7 @@ Con las fases 1 y 2 hechas, el puente es una capa fina: recibe, verifica, emite.
 Va al final porque solo tiene sentido cuando hay terceros a los que retirar el
 permiso.
 
-## Fase 5 — presentación pública
+## Fase 5 — presentación pública ✅ HECHA (2026-09-06)
 
 **Repos:** `dotrino-sso/web/`, `dotrino-home`
 
