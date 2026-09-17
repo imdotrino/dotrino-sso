@@ -40,11 +40,33 @@ quiera es regalar la mitad de un engaño.
 La URL de retorno se compara **entera**: un prefijo dejaría colar `?next=` y con eso el
 código se va a otra parte.
 
+**El `name` tiene que ser único.** La bóveda del usuario guarda lo que le concede a cada
+aplicación por el origen del puente **más** ese nombre (`@dotrino/identity` ≥ 0.93.0): dos
+aplicaciones registradas con el mismo nombre compartirían el permiso, y el usuario tampoco
+podría distinguirlas en el panel. Cambiarle el nombre a una hace que se le vuelva a preguntar.
+
 ## Qué guarda
 
 Su llave de firma y el fichero de aplicaciones. **Nada más**: ni usuarios, ni accesos, ni
 direcciones IP. Los códigos viven en memoria y vencen en un minuto. Por eso un compromiso de
 este servicio no filtra el directorio de nadie — obliga a rotar la llave y poco más.
+
+**Eso vale para el proceso, y el servidor web de delante tiene que cumplirlo también.** Un
+nginx con la configuración por defecto anota cada petición con su IP y su hora, y la de
+`/authorize` lleva el `client_id`: o sea, quién entró a qué aplicación y cuándo, que es
+justo lo que aquí se promete no guardar. Pasó en el de Dotrino hasta el 2026-09-17. En el
+sitio del puente:
+
+```nginx
+server {
+    server_name sso.tuempresa.com;
+    access_log off;
+    ...
+}
+```
+
+(en los dos bloques, el de 443 y el de 80). El `error_log` se queda: solo escribe cuando el
+servidor falla —el puente caído, por ejemplo— y entonces sí anota la petición que falló.
 
 ## Cómo está desplegado el de Dotrino (2026-09-06)
 
@@ -54,22 +76,16 @@ En el VPS **74.208.11.221**, el mismo que sirve geo y reputación:
 ~/dotrino-sso            clon del repo (https, es público)
 ~/cc-sso.config.cjs      pm2: PORT 8093, SSO_ISSUER, rutas de llave y clientes
 ~/.dotrino-sso/          la llave de firma (600) y clients.json
-nginx: /etc/nginx/sites-available/sso.dotrino.com → 127.0.0.1:8093
+nginx: /etc/nginx/sites-available/sso.dotrino.com → 127.0.0.1:8093, con access_log off
 ```
 
 ```bash
 pm2 start ~/cc-sso.config.cjs --update-env && pm2 save
 ```
 
-**Falta el DNS y el TLS**: `sso.dotrino.com` todavía resuelve al wildcard de Cloudflare
-(que va a Pages). Hace falta un registro **A → 74.208.11.221 en DNS only (gris)**, igual que
-`geo.dotrino.com`; en cuanto apunte:
-
-```bash
-sudo certbot --nginx -d sso.dotrino.com          # o --expand sobre el cert de proxy2
-```
-
-El certificado actual de esa máquina cubre `geo`, `proxy2` y `reputation`, no `sso`.
+DNS: registro **A → 74.208.11.221 en DNS only (gris)**, igual que `geo.dotrino.com` — con la
+nube naranja, Cloudflare vería cada acceso. Certificado propio (`certbot --nginx -d
+sso.dotrino.com`).
 
 ## Autohospedarlo
 

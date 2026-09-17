@@ -11,10 +11,9 @@ funciona Dotrino por dentro.
 
 Parte del ecosistema [Dotrino](https://dotrino.com/) · MIT.
 
-> **Estado: diseño, sin implementar.** Este repo contiene por ahora solo la
-> documentación. El diseño completo está en [`docs/DISENO.md`](./docs/DISENO.md);
-> el reparto de trabajo entre piezas, en
-> [`docs/FASES.md`](./docs/FASES.md).
+> **Estado: en vivo en `sso.dotrino.com` desde el 2026-09-06** (ver §7). El diseño
+> completo está en [`docs/DISENO.md`](./docs/DISENO.md); el reparto de trabajo entre
+> piezas, en [`docs/FASES.md`](./docs/FASES.md).
 
 ---
 

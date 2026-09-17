@@ -1,6 +1,6 @@
 # Fases — qué se construye, en qué orden y en qué repo
 
-> Complementa a [`DISENO.md`](./DISENO.md). Estado: **nada implementado**.
+> Complementa a [`DISENO.md`](./DISENO.md). Estado: **fases 1 a 5 hechas** (2026-09-06); cada una dice abajo lo que quedó fuera.
 
 ## Orden acordado con el dueño (2026-09-05)
 
