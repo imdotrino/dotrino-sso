@@ -11,7 +11,9 @@ funciona Dotrino por dentro.
 
 Parte del ecosistema [Dotrino](https://dotrino.com/) · MIT.
 
-> **Estado: en vivo en `sso.dotrino.com` desde el 2026-09-06** (ver §7). El diseño
+> **Estado: EN DESARROLLO** (dueño, 2026-09-17). Está en vivo en `sso.dotrino.com` desde el
+> 2026-09-06 (ver §7), pero todavía entrega el correo sin verificar —y lo decidido es no
+> entregarlo hasta verificarlo— y ninguna aplicación real lo usa. El diseño
 > completo está en [`docs/DISENO.md`](./docs/DISENO.md); el reparto de trabajo entre
 > piezas, en [`docs/FASES.md`](./docs/FASES.md).
 
