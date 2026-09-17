@@ -255,9 +255,9 @@ esconderse:
 - **Una firma prueba continuidad, no identidad.** Prueba que es la misma persona
   que la vez pasada. No prueba que se llame como dice. Quien necesite un nombre
   real necesita además un respaldo ([`@dotrino/verifier`](../../dotrino-verifier/)).
-- **El correo no viene respaldado por omisión.** Un integrador que use el correo
-  como clave primaria de su tabla debe saberlo. Mientras el verificador no esté
-  cableado, `profile:email` entrega un correo **declarado**.
+- **El correo solo sale respaldado** (decidido 2026-09-17). Un correo declarado no se
+  entrega: `profile:email` no da nada hasta que `@dotrino/verifier` lo respalde, y entonces
+  sale con `email_verified`. **Pendiente de implementar**: hoy el puente lo entrega declarado.
 - **No reemplaza a un proveedor de identidad masivo** en una tienda cualquiera.
   El integrador realista de la primera hora es quien ya valora la privacidad, o
   una empresa que autohospeda.
@@ -275,9 +275,10 @@ esconderse:
 - Los datos que viajan son **los que el usuario concedió**, uno por uno.
 - **El mismo usuario en dos aplicaciones no queda correlacionado** por ninguna
   base de datos central: si algún día se quiere evitar incluso que dos
-  aplicaciones puedan cruzar el `sub`, el camino es un identificador **por pares**
-  (derivado de `sub` + `client_id`), a costa de que la misma persona no sea
-  reconocible entre servicios. Decisión pendiente (§10).
+  aplicaciones puedan cruzar el `sub`, el camino sería un identificador **por pares**
+  (derivado de `sub` + `client_id`). **Decidido (2026-09-17): no.** El `sub` es el mismo en
+  todas las aplicaciones: la misma persona es reconocible entre servicios, y a cambio dos
+  aplicaciones pueden cruzarla.
 - Nada de terceros: ni analítica ajena, ni recursos externos en la pantalla de
   permiso.
 
@@ -298,11 +299,11 @@ del usuario.
 
 | Tema | Pregunta |
 |---|---|
-| **Registro de aplicaciones** | ¿Autorregistro abierto, fichero declarativo revisado o alta manual? Abierto es cómodo y permite que cualquiera se anuncie con el nombre que quiera en la pantalla de permiso. |
-| **Identificador por pares** | ¿`sub` igual en todas las aplicaciones (la misma persona es reconocible) o derivado por aplicación (nadie puede cruzarlas)? Son objetivos incompatibles; hay que elegir, o dejarlo a elección del usuario por aplicación. |
-| **Correo respaldado** | ¿Se bloquea `profile:email` hasta que `@dotrino/verifier` esté cableado, o se entrega marcado como *declarado*? |
+| ~~**Registro de aplicaciones**~~ | **Decidido (2026-09-06): fichero declarativo revisado** (`DEPLOY.md`). |
+| ~~**Identificador por pares**~~ | **Decidido (2026-09-17): el mismo `sub` en todas las aplicaciones.** |
+| ~~**Correo respaldado**~~ | **Decidido (2026-09-17): se bloquea hasta verificar.** Pendiente de implementar. |
 | **Bóveda ausente** | Si el usuario no tiene bóveda instalada, ¿la pantalla del puente ofrece crear un perfil ahí mismo, o manda a `profile.dotrino.com`? |
-| **Cierre de sesión global** | OIDC define avisar a las aplicaciones al cerrar sesión, y eso exige que el puente sepa **dónde** entraste — justo lo que decidimos no guardar. Probable respuesta: no se soporta, y se explica por qué. |
+| ~~**Cierre de sesión global**~~ | **Decidido (2026-09-06): no se soporta**, porque exigiría que el puente sepa dónde entraste. Se explica en `README.md`. |
 | **Salir del navegador** | El flujo asume una bóveda alcanzable desde la página del puente (iframe o daemon local). Falta definir el caso del móvil sin bóveda local. |
 
 ## 11. Referencias
