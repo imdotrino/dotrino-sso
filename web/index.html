@@ -90,8 +90,8 @@
 </head>
 <body>
 <!-- Barra estándar del ecosistema (CONVENCIONES §5): marca + idioma + support.
-     Sin `profile`: una landing de servicio no tiene usuario (§1.2). -->
-<dotrino-topbar
+     Con `profile` como toda página (§5): sin bóveda, el menú lleva a profile.dotrino.com. -->
+<dotrino-topbar profile
   brand="Entrar con Dotrino"
   icon="/icon.svg"
   no-back
@@ -186,6 +186,6 @@ if (v.ok) console.log('entró', v.profileId, v.claims)</code></pre>
 
 <!-- OJO: por CDN el topbar va SIEMPRE con `+esm` (sus imports desnudos no
      resuelven en el navegador). Trae dentro nav + support. -->
-<script type="module" src="https://cdn.jsdelivr.net/npm/@dotrino/topbar@0.9/+esm"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@dotrino/topbar@0.12/+esm"></script>
 </body>
 </html>
