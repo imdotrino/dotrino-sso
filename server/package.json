@@ -9,7 +9,8 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "@dotrino/identity": "0.109.0"
+    "@dotrino/identity": "0.109.0",
+    "@dotrino/update": "0.6.0"
   },
   "license": "MIT"
 }

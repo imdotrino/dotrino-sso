@@ -306,6 +306,14 @@ function main() {
         tokenTtlS: Number(process.env.SSO_TOKEN_TTL_S) || undefined
     });
     bridge.server.listen(PORT, () => console.log(`[sso] bridge for ${bridge.issuer} listening on :${PORT}`));
+    startUpdateWatch();
+}
+
+// §15: lo que se queda atrás en un servicio desplegado desde git son sus pilares.
+function startUpdateWatch() {
+    import('@dotrino/update/deps')
+        .then(({ watchDependencies }) => watchDependencies({ dir: __dirname, name: 'sso' }))
+        .catch((e) => console.error('[update] could not start the watch:', e.code || e.message));
 }
 
 if (require.main === module) main();
