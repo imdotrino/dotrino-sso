@@ -54,12 +54,54 @@ const pkceOk = (verifier, challenge) =>
     typeof verifier === 'string' && verifier.length >= 43 &&
     b64url(crypto.createHash('sha256').update(verifier).digest()) === challenge;
 
+/**
+ * La copy de la página de entrar, es/en (§9). Los errores se eligen por el código OAuth
+ * `error` que devuelve `/authorize/complete` (y por `vault_unreachable`, que pone la página
+ * cuando no llega a la bóveda): el `error_description` sigue en inglés, para quien integra,
+ * y nunca se enseña al usuario.
+ */
+const PAGE_COPY = {
+    es: {
+        title: 'Entrar con Dotrino',
+        wants: 'quiere saber quién eres.',
+        promise: 'Tu llave no sale de tu dispositivo, y este servicio no guarda nada de lo que pase aquí.',
+        go: 'Continuar',
+        asking: 'Preguntando a tu bóveda…',
+        errors: {
+            access_denied: 'Tu bóveda no confirmó quién eres. Inténtalo de nuevo.',
+            invalid_client: 'Esta aplicación no está registrada para entrar con Dotrino.',
+            server_error: 'Algo falló de nuestro lado. Inténtalo de nuevo en un momento.',
+            vault_unreachable: 'No se pudo hablar con tu bóveda. Revisa tu conexión e inténtalo de nuevo.',
+            unknown: 'No se pudo entrar. Inténtalo de nuevo.'
+        }
+    },
+    en: {
+        title: 'Sign in with Dotrino',
+        wants: 'wants to know who you are.',
+        promise: 'Your key never leaves your device, and this service keeps nothing of what happens here.',
+        go: 'Continue',
+        asking: 'Asking your vault…',
+        errors: {
+            access_denied: 'Your vault did not confirm who you are. Please try again.',
+            invalid_client: 'This app is not registered to sign in with Dotrino.',
+            server_error: 'Something failed on our side. Please try again in a moment.',
+            vault_unreachable: 'Could not reach your vault. Check your connection and try again.',
+            unknown: 'Could not sign in. Please try again.'
+        }
+    }
+};
+
+/** El idioma de la página, de la cabecera Accept-Language: español si lo pide, si no inglés. */
+const pageLang = (acceptLanguage) => /^\s*es\b/i.test(String(acceptLanguage || '')) ? 'es' : 'en';
+
 /** La página que habla con la bóveda. Se sirve desde aquí para que no haya nada que instalar. */
-function authorizePage({ issuer, vaultUrl, client, state, nonceIn, scopes, redirect_uri, challenge }) {
+function authorizePage({ issuer, vaultUrl, client, state, nonceIn, scopes, redirect_uri, challenge, lang }) {
+    const t = PAGE_COPY[lang];
+    if (!t) throw new Error('authorizePage: unknown lang ' + lang);
     const cfg = JSON.stringify({ issuer, vault: vaultUrl, client: { id: client.client_id, name: client.name }, state, nonceIn, scopes, redirect_uri, challenge });
-    return `<!doctype html><html lang="es"><head><meta charset="utf-8">
+    return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Entrar con Dotrino</title>
+<title>${t.title}</title>
 <style>
  :root{color-scheme:dark}
  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
@@ -69,24 +111,34 @@ function authorizePage({ issuer, vaultUrl, client, state, nonceIn, scopes, redir
  .app{font-weight:700;color:#fff} .err{color:#e5484d}
  button{width:100%;margin-top:14px;padding:11px;border:0;border-radius:10px;background:#7c3aed;color:#fff;font:inherit;font-weight:600;cursor:pointer}
 </style></head><body><div class="card">
- <h1>Entrar con Dotrino</h1>
- <p><span class="app">${escapeHtml(client.name)}</span> quiere saber quién eres.</p>
- <p>Tu llave no sale de tu dispositivo, y este servicio no guarda nada de lo que pase aquí.</p>
- <div id="status"><button id="go">Continuar</button></div>
+ <h1>${t.title}</h1>
+ <p><span class="app">${escapeHtml(client.name)}</span> ${t.wants}</p>
+ <p>${t.promise}</p>
+ <div id="status"><button id="go">${t.go}</button></div>
 </div>
 <script type="module">
 const CFG = ${cfg};
+const COPY = ${JSON.stringify({ asking: t.asking, errors: t.errors })};
+// El mensaje sale del CÓDIGO, nunca del error_description (que es para quien integra).
+const errorText = (code) => COPY.errors[code] || COPY.errors.unknown;
 const el = document.getElementById('status');
 const say = (t, isError) => { el.innerHTML = '<p class="' + (isError ? 'err' : '') + '">' + t + '</p>'; };
 document.getElementById('go').addEventListener('click', async () => {
-  say('Preguntando a tu bóveda…');
+  say(COPY.asking);
+  let id, newAssertionNonce;
   try {
     // El pin va por MINOR: jsDelivr sirve el último parche de esa rama, así que los
     // arreglos entran solos. La minor sí hay que subirla a mano al usar algo nuevo —
     // onBehalfOf llegó en 0.87 y con el pin anterior se ignoraba en silencio.
     // (Sin acentos graves aquí dentro: esto vive en una plantilla y los cerraría.)
-    const { Identity, newAssertionNonce } = await import('https://cdn.jsdelivr.net/npm/@dotrino/identity@0.87/+esm');
-    const id = await Identity.connect({ vaultUrl: CFG.vault });
+    const mod = await import('https://cdn.jsdelivr.net/npm/@dotrino/identity@0.87/+esm');
+    newAssertionNonce = mod.newAssertionNonce;
+    id = await mod.Identity.connect({ vaultUrl: CFG.vault });
+  } catch (e) {
+    console.error('[sso] could not reach the vault:', e);
+    return say(errorText('vault_unreachable'), true);
+  }
+  try {
     const nonce = newAssertionNonce();
     // El destinatario es ESTE puente: la prueba no sirve ante ningún otro.
     // EN NOMBRE DE QUIÉN pedimos. Sin esto, todas las aplicaciones que entran por este
@@ -98,12 +150,12 @@ document.getElementById('go').addEventListener('click', async () => {
       body: JSON.stringify({ assertion, nonce, client_id: CFG.client.id, redirect_uri: CFG.redirect_uri, challenge: CFG.challenge })
     });
     const out = await r.json();
-    if (!r.ok) return say(out.error_description || out.error || 'No se pudo entrar.', true);
+    if (!r.ok) { console.error('[sso] authorize/complete failed:', out.error, out.error_description || ''); return say(errorText(out.error), true); }
     const u = new URL(CFG.redirect_uri);
     u.searchParams.set('code', out.code);
     if (CFG.state) u.searchParams.set('state', CFG.state);
     location.replace(u.toString());
-  } catch (e) { say((e && e.message) || 'No se pudo hablar con tu bóveda.', true); }
+  } catch (e) { console.error('[sso] sign-in failed:', e); say(errorText(e && e.code), true); }
 });
 </script></body></html>`;
 }
@@ -208,7 +260,7 @@ function createBridge({
             return res.end(authorizePage({
                 issuer: ISSUER, vaultUrl: VAULT_URL,
                 client, state: url.searchParams.get('state') || '', nonceIn: url.searchParams.get('nonce') || '',
-                scopes, redirect_uri, challenge
+                scopes, redirect_uri, challenge, lang: pageLang(req.headers['accept-language'])
             }));
         }
 

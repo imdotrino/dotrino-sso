@@ -38,7 +38,7 @@ async function startBridge () {
   })
   await new Promise((r) => b.server.listen(0, r))
   const base = 'http://127.0.0.1:' + b.server.address().port
-  return { base, dir, cierra: () => { b.close(); fs.rmSync(dir, { recursive: true, force: true }) } }
+  return { base, dir, close: () => { b.close(); fs.rmSync(dir, { recursive: true, force: true }) } }
 }
 
 /** Una cuenta que pide su prueba para el puente, como haría la página de `/authorize`. */
@@ -89,7 +89,7 @@ test('el camino entero: prueba de la bóveda → code → id_token verificable',
   assert.equal(claims.dotrino_pubkey, profileId)
   assert.equal(claims.aud, 'app-de-ejemplo')
   assert.equal(claims.nonce, 'n-de-la-app', 'el nonce de la app vuelve en el token')
-  p.cierra()
+  p.close()
 })
 
 test('un código se canjea UNA vez', async () => {
@@ -103,7 +103,7 @@ test('un código se canjea UNA vez', async () => {
   const args = { grant_type: 'authorization_code', code, client_id: 'app-de-ejemplo', redirect_uri: REDIRECT_URI, code_verifier: verifier }
   assert.equal((await redeem(p.base, args)).status, 200)
   assert.equal((await redeem(p.base, args)).status, 400, 'the second attempt is rejected')
-  p.cierra()
+  p.close()
 })
 
 test('sin el verificador correcto no hay token (PKCE)', async () => {
@@ -116,7 +116,7 @@ test('sin el verificador correcto no hay token (PKCE)', async () => {
   const r = await redeem(p.base, { grant_type: 'authorization_code', code, client_id: 'app-de-ejemplo', redirect_uri: REDIRECT_URI, code_verifier: b64url(crypto.randomBytes(32)) })
   assert.equal(r.status, 400)
   assert.equal((await r.json()).error, 'invalid_grant')
-  p.cierra()
+  p.close()
 })
 
 test('una prueba dirigida a OTRO no entra aquí', async () => {
@@ -126,7 +126,7 @@ test('una prueba dirigida a OTRO no entra aquí', async () => {
   const r = await complete(p.base, { assertion, nonce, client_id: 'app-de-ejemplo', redirect_uri: REDIRECT_URI, challenge: 'x'.repeat(43) })
   assert.equal(r.status, 401)
   assert.match((await r.json()).error_description, /otro-destinatario/)
-  p.cierra()
+  p.close()
 })
 
 test('la URL de retorno se compara entera, no por prefijo', async () => {
@@ -135,7 +135,7 @@ test('la URL de retorno se compara entera, no por prefijo', async () => {
   const { assertion } = await assertionFor(nonce)
   const r = await complete(p.base, { assertion, nonce, client_id: 'app-de-ejemplo', redirect_uri: REDIRECT_URI + '?next=https://otro.com', challenge: 'x'.repeat(43) })
   assert.equal(r.status, 400, 'un prefijo dejaría colar el código a otra parte')
-  p.cierra()
+  p.close()
 })
 
 test('lo que publica para que una librería OIDC lo entienda', async () => {
@@ -145,7 +145,7 @@ test('lo que publica para que una librería OIDC lo entienda', async () => {
   assert.deepEqual(cfg.code_challenge_methods_supported, ['S256'], 'plain no se acepta')
   assert.deepEqual(cfg.response_types_supported, ['code'], 'nada de flujo implícito')
   assert.deepEqual(cfg.id_token_signing_alg_values_supported, ['ES256'])
-  p.cierra()
+  p.close()
 })
 
 test('`/authorize` exige cliente conocido, retorno registrado y PKCE', async () => {
@@ -155,7 +155,7 @@ test('`/authorize` exige cliente conocido, retorno registrado y PKCE', async () 
   assert.equal(await q('client_id=app-de-ejemplo&redirect_uri=https://otro.com'), 400)
   assert.equal(await q('client_id=app-de-ejemplo&redirect_uri=' + encodeURIComponent(REDIRECT_URI)), 400, 'no PKCE, no entry')
   assert.equal(await q('client_id=app-de-ejemplo&redirect_uri=' + encodeURIComponent(REDIRECT_URI) + '&code_challenge_method=S256&code_challenge=' + 'x'.repeat(43)), 200)
-  p.cierra()
+  p.close()
 })
 
 test('la landing la sirve el propio servicio, y no deja pedir otra cosa', async () => {
@@ -175,5 +175,23 @@ test('la landing la sirve el propio servicio, y no deja pedir otra cosa', async 
   // La lista de estáticos es cerrada: no se compone una ruta con lo que venga de fuera.
   assert.equal((await fetch(p.base + '/../server/server.js')).status, 404)
   assert.equal((await fetch(p.base + '/clients.json')).status, 404)
-  p.cierra()
+  p.close()
+})
+
+test('la página de entrar habla el idioma del navegador y elige el error por su código', async () => {
+  const p = await startBridge()
+  try {
+    const url = p.base + '/authorize?' + new URLSearchParams({ client_id: 'app-de-ejemplo', redirect_uri: REDIRECT_URI, code_challenge: 'x'.repeat(43), code_challenge_method: 'S256' })
+    const es = await (await fetch(url, { headers: { 'accept-language': 'es-EC,es;q=0.9' } })).text()
+    assert.match(es, /<html lang="es">/)
+    assert.match(es, /Entrar con Dotrino/)
+    assert.match(es, /Tu bóveda no confirmó quién eres/)
+    const en = await (await fetch(url, { headers: { 'accept-language': 'en-US' } })).text()
+    assert.match(en, /<html lang="en">/)
+    assert.match(en, /Sign in with Dotrino/)
+    assert.match(en, /Could not reach your vault/)
+    // Al usuario nunca se le enseña el error_description: es para quien integra.
+    assert.match(en, /say\(errorText\(out\.error\), true\)/)
+    assert.doesNotMatch(en, /say\([^)]*error_description/)
+  } finally { p.close() }
 })
