@@ -11,10 +11,10 @@ import path from 'node:path'
 import { Identity } from '@dotrino/identity/node'
 import { verifyLogin, newAssertionNonce } from '../src/index.js'
 
-const MI_APP = 'https://app.ejemplo.com'
+const MY_APP = 'https://app.ejemplo.com'
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'ssoc-'))
 
-async function cuenta () {
+async function makeAccount () {
   const dir = tmp()
   const id = await Identity.connect({ dir })
   const profileId = (await id.profileActa())?.acta?.profileId || id.me.publickey
@@ -22,11 +22,11 @@ async function cuenta () {
 }
 
 test('quien entra es la misma persona en todas tus pantallas, y sin nadie en medio', async () => {
-  const c = await cuenta()
+  const c = await makeAccount()
   const nonce = newAssertionNonce()
-  const prueba = await c.id.requestAssertion({ audience: MI_APP, nonce, scopes: ['id:whoami'] })
+  const assertion = await c.id.requestAssertion({ audience: MY_APP, nonce, scopes: ['id:whoami'] })
 
-  const v = await verifyLogin(prueba, { audience: MI_APP, nonce })
+  const v = await verifyLogin(assertion, { audience: MY_APP, nonce })
   assert.equal(v.ok, true, v.reason)
   assert.equal(v.profileId, c.profileId)
   assert.ok(v.expiresAt > Date.now())
@@ -34,20 +34,20 @@ test('quien entra es la misma persona en todas tus pantallas, y sin nadie en med
 })
 
 test('la prueba de otra aplicación no sirve en la mía', async () => {
-  const c = await cuenta()
+  const c = await makeAccount()
   const nonce = newAssertionNonce()
-  const prueba = await c.id.requestAssertion({ audience: 'https://otra.ejemplo.com', nonce, scopes: ['id:whoami'] })
-  const v = await verifyLogin(prueba, { audience: MI_APP, nonce })
+  const assertion = await c.id.requestAssertion({ audience: 'https://otra.ejemplo.com', nonce, scopes: ['id:whoami'] })
+  const v = await verifyLogin(assertion, { audience: MY_APP, nonce })
   assert.equal(v.ok, false)
   assert.equal(v.reason, 'otro-destinatario')
   c.limpia()
 })
 
 test('sin decir quién eres tú, o con otro reto, no se juzga', async () => {
-  const c = await cuenta()
+  const c = await makeAccount()
   const nonce = newAssertionNonce()
-  const prueba = await c.id.requestAssertion({ audience: MI_APP, nonce, scopes: ['id:whoami'] })
-  assert.equal((await verifyLogin(prueba, { nonce })).reason, 'no-audience')
-  assert.equal((await verifyLogin(prueba, { audience: MI_APP, nonce: 'otro' })).reason, 'otro-reto')
+  const assertion = await c.id.requestAssertion({ audience: MY_APP, nonce, scopes: ['id:whoami'] })
+  assert.equal((await verifyLogin(assertion, { nonce })).reason, 'no-audience')
+  assert.equal((await verifyLogin(assertion, { audience: MY_APP, nonce: 'otro' })).reason, 'otro-reto')
   c.limpia()
 })

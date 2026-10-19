@@ -19,16 +19,16 @@ import { newAssertionNonce } from '@dotrino/identity/assertion'
 
 const require_ = createRequire(import.meta.url)
 const ISSUER = 'https://sso.dotrino.com'
-const REDIR = 'https://app.ejemplo.com/callback'
+const REDIRECT_URI = 'https://app.ejemplo.com/callback'
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'sso-'))
 const b64url = (b) => Buffer.from(b).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 
 /** El puente, escuchando en un puerto libre, con su fichero de clientes. */
-async function puente () {
+async function startBridge () {
   const dir = tmp()
   fs.writeFileSync(path.join(dir, 'clients.json'), JSON.stringify({
-    'app-de-ejemplo': { client_id: 'app-de-ejemplo', name: 'App de ejemplo', redirect_uris: [REDIR] }
+    'app-de-ejemplo': { client_id: 'app-de-ejemplo', name: 'App de ejemplo', redirect_uris: [REDIRECT_URI] }
   }))
   const { createBridge } = require_('../server/server.js')
   const b = createBridge({
@@ -42,7 +42,7 @@ async function puente () {
 }
 
 /** Una cuenta que pide su prueba para el puente, como haría la página de `/authorize`. */
-async function pruebaDe (nonce, audience = ISSUER, scopes = ['id:whoami']) {
+async function assertionFor (nonce, audience = ISSUER, scopes = ['id:whoami']) {
   const dir = tmp()
   const id = await Identity.connect({ dir })
   const assertion = await id.requestAssertion({ audience, nonce, scopes })
@@ -51,26 +51,26 @@ async function pruebaDe (nonce, audience = ISSUER, scopes = ['id:whoami']) {
   return { assertion, profileId }
 }
 
-const completar = (base, body) => fetch(base + '/authorize/complete', {
+const complete = (base, body) => fetch(base + '/authorize/complete', {
   method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body)
 })
-const canjear = (base, params) => fetch(base + '/token', {
+const redeem = (base, params) => fetch(base + '/token', {
   method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(params)
 })
 
 test('el camino entero: prueba de la bóveda → code → id_token verificable', async () => {
-  const p = await puente()
+  const p = await startBridge()
   const verifier = b64url(crypto.randomBytes(32))
   const challenge = b64url(crypto.createHash('sha256').update(verifier).digest())
   const nonce = newAssertionNonce()
-  const { assertion, profileId } = await pruebaDe(nonce)
+  const { assertion, profileId } = await assertionFor(nonce)
 
-  const r1 = await completar(p.base, { assertion, nonce, client_id: 'app-de-ejemplo', redirect_uri: REDIR, challenge, nonceIn: 'n-de-la-app' })
+  const r1 = await complete(p.base, { assertion, nonce, client_id: 'app-de-ejemplo', redirect_uri: REDIRECT_URI, challenge, nonceIn: 'n-de-la-app' })
   assert.equal(r1.status, 200)
   const { code } = await r1.json()
   assert.ok(code)
 
-  const r2 = await canjear(p.base, { grant_type: 'authorization_code', code, client_id: 'app-de-ejemplo', redirect_uri: REDIR, code_verifier: verifier })
+  const r2 = await redeem(p.base, { grant_type: 'authorization_code', code, client_id: 'app-de-ejemplo', redirect_uri: REDIRECT_URI, code_verifier: verifier })
   assert.equal(r2.status, 200)
   const tok = await r2.json()
   assert.equal(tok.token_type, 'Bearer')
@@ -93,53 +93,53 @@ test('el camino entero: prueba de la bóveda → code → id_token verificable',
 })
 
 test('un código se canjea UNA vez', async () => {
-  const p = await puente()
+  const p = await startBridge()
   const verifier = b64url(crypto.randomBytes(32))
   const challenge = b64url(crypto.createHash('sha256').update(verifier).digest())
   const nonce = newAssertionNonce()
-  const { assertion } = await pruebaDe(nonce)
-  const { code } = await (await completar(p.base, { assertion, nonce, client_id: 'app-de-ejemplo', redirect_uri: REDIR, challenge })).json()
+  const { assertion } = await assertionFor(nonce)
+  const { code } = await (await complete(p.base, { assertion, nonce, client_id: 'app-de-ejemplo', redirect_uri: REDIRECT_URI, challenge })).json()
 
-  const args = { grant_type: 'authorization_code', code, client_id: 'app-de-ejemplo', redirect_uri: REDIR, code_verifier: verifier }
-  assert.equal((await canjear(p.base, args)).status, 200)
-  assert.equal((await canjear(p.base, args)).status, 400, 'el segundo intento ya no vale')
+  const args = { grant_type: 'authorization_code', code, client_id: 'app-de-ejemplo', redirect_uri: REDIRECT_URI, code_verifier: verifier }
+  assert.equal((await redeem(p.base, args)).status, 200)
+  assert.equal((await redeem(p.base, args)).status, 400, 'the second attempt is rejected')
   p.cierra()
 })
 
 test('sin el verificador correcto no hay token (PKCE)', async () => {
-  const p = await puente()
+  const p = await startBridge()
   const challenge = b64url(crypto.createHash('sha256').update(b64url(crypto.randomBytes(32))).digest())
   const nonce = newAssertionNonce()
-  const { assertion } = await pruebaDe(nonce)
-  const { code } = await (await completar(p.base, { assertion, nonce, client_id: 'app-de-ejemplo', redirect_uri: REDIR, challenge })).json()
+  const { assertion } = await assertionFor(nonce)
+  const { code } = await (await complete(p.base, { assertion, nonce, client_id: 'app-de-ejemplo', redirect_uri: REDIRECT_URI, challenge })).json()
 
-  const r = await canjear(p.base, { grant_type: 'authorization_code', code, client_id: 'app-de-ejemplo', redirect_uri: REDIR, code_verifier: b64url(crypto.randomBytes(32)) })
+  const r = await redeem(p.base, { grant_type: 'authorization_code', code, client_id: 'app-de-ejemplo', redirect_uri: REDIRECT_URI, code_verifier: b64url(crypto.randomBytes(32)) })
   assert.equal(r.status, 400)
   assert.equal((await r.json()).error, 'invalid_grant')
   p.cierra()
 })
 
 test('una prueba dirigida a OTRO no entra aquí', async () => {
-  const p = await puente()
+  const p = await startBridge()
   const nonce = newAssertionNonce()
-  const { assertion } = await pruebaDe(nonce, 'https://sso.otracosa.com')
-  const r = await completar(p.base, { assertion, nonce, client_id: 'app-de-ejemplo', redirect_uri: REDIR, challenge: 'x'.repeat(43) })
+  const { assertion } = await assertionFor(nonce, 'https://sso.otracosa.com')
+  const r = await complete(p.base, { assertion, nonce, client_id: 'app-de-ejemplo', redirect_uri: REDIRECT_URI, challenge: 'x'.repeat(43) })
   assert.equal(r.status, 401)
   assert.match((await r.json()).error_description, /otro-destinatario/)
   p.cierra()
 })
 
 test('la URL de retorno se compara entera, no por prefijo', async () => {
-  const p = await puente()
+  const p = await startBridge()
   const nonce = newAssertionNonce()
-  const { assertion } = await pruebaDe(nonce)
-  const r = await completar(p.base, { assertion, nonce, client_id: 'app-de-ejemplo', redirect_uri: REDIR + '?next=https://otro.com', challenge: 'x'.repeat(43) })
+  const { assertion } = await assertionFor(nonce)
+  const r = await complete(p.base, { assertion, nonce, client_id: 'app-de-ejemplo', redirect_uri: REDIRECT_URI + '?next=https://otro.com', challenge: 'x'.repeat(43) })
   assert.equal(r.status, 400, 'un prefijo dejaría colar el código a otra parte')
   p.cierra()
 })
 
 test('lo que publica para que una librería OIDC lo entienda', async () => {
-  const p = await puente()
+  const p = await startBridge()
   const cfg = await (await fetch(p.base + '/.well-known/openid-configuration')).json()
   assert.equal(cfg.issuer, ISSUER)
   assert.deepEqual(cfg.code_challenge_methods_supported, ['S256'], 'plain no se acepta')
@@ -149,17 +149,17 @@ test('lo que publica para que una librería OIDC lo entienda', async () => {
 })
 
 test('`/authorize` exige cliente conocido, retorno registrado y PKCE', async () => {
-  const p = await puente()
+  const p = await startBridge()
   const q = (s) => fetch(p.base + '/authorize?' + s).then((r) => r.status)
-  assert.equal(await q('client_id=nadie&redirect_uri=' + encodeURIComponent(REDIR)), 400)
+  assert.equal(await q('client_id=nadie&redirect_uri=' + encodeURIComponent(REDIRECT_URI)), 400)
   assert.equal(await q('client_id=app-de-ejemplo&redirect_uri=https://otro.com'), 400)
-  assert.equal(await q('client_id=app-de-ejemplo&redirect_uri=' + encodeURIComponent(REDIR)), 400, 'sin PKCE, no')
-  assert.equal(await q('client_id=app-de-ejemplo&redirect_uri=' + encodeURIComponent(REDIR) + '&code_challenge_method=S256&code_challenge=' + 'x'.repeat(43)), 200)
+  assert.equal(await q('client_id=app-de-ejemplo&redirect_uri=' + encodeURIComponent(REDIRECT_URI)), 400, 'no PKCE, no entry')
+  assert.equal(await q('client_id=app-de-ejemplo&redirect_uri=' + encodeURIComponent(REDIRECT_URI) + '&code_challenge_method=S256&code_challenge=' + 'x'.repeat(43)), 200)
   p.cierra()
 })
 
 test('la landing la sirve el propio servicio, y no deja pedir otra cosa', async () => {
-  const p = await puente()
+  const p = await startBridge()
   const home = await fetch(p.base + '/')
   assert.equal(home.status, 200)
   assert.match(home.headers.get('content-type'), /text\/html/)

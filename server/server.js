@@ -72,14 +72,14 @@ function authorizePage({ issuer, vaultUrl, client, state, nonceIn, scopes, redir
  <h1>Entrar con Dotrino</h1>
  <p><span class="app">${escapeHtml(client.name)}</span> quiere saber quién eres.</p>
  <p>Tu llave no sale de tu dispositivo, y este servicio no guarda nada de lo que pase aquí.</p>
- <div id="estado"><button id="go">Continuar</button></div>
+ <div id="status"><button id="go">Continuar</button></div>
 </div>
 <script type="module">
 const CFG = ${cfg};
-const el = document.getElementById('estado');
-const decir = (t, mal) => { el.innerHTML = '<p class="' + (mal ? 'err' : '') + '">' + t + '</p>'; };
+const el = document.getElementById('status');
+const say = (t, isError) => { el.innerHTML = '<p class="' + (isError ? 'err' : '') + '">' + t + '</p>'; };
 document.getElementById('go').addEventListener('click', async () => {
-  decir('Preguntando a tu bóveda…');
+  say('Preguntando a tu bóveda…');
   try {
     // El pin va por MINOR: jsDelivr sirve el último parche de esa rama, así que los
     // arreglos entran solos. La minor sí hay que subirla a mano al usar algo nuevo —
@@ -98,12 +98,12 @@ document.getElementById('go').addEventListener('click', async () => {
       body: JSON.stringify({ assertion, nonce, client_id: CFG.client.id, redirect_uri: CFG.redirect_uri, challenge: CFG.challenge })
     });
     const out = await r.json();
-    if (!r.ok) return decir(out.error_description || out.error || 'No se pudo entrar.', true);
+    if (!r.ok) return say(out.error_description || out.error || 'No se pudo entrar.', true);
     const u = new URL(CFG.redirect_uri);
     u.searchParams.set('code', out.code);
     if (CFG.state) u.searchParams.set('state', CFG.state);
     location.replace(u.toString());
-  } catch (e) { decir((e && e.message) || 'No se pudo hablar con tu bóveda.', true); }
+  } catch (e) { say((e && e.message) || 'No se pudo hablar con tu bóveda.', true); }
 });
 </script></body></html>`;
 }
@@ -166,7 +166,7 @@ function createBridge({
         // estático aparte, para que desplegarla siga siendo el mismo `git pull` que todo
         // lo demás: una pieza menos que se puede quedar atrás sin que nadie lo note. ----
         if (req.method === 'GET') {
-            const estatico = {
+            const staticFile = {
                 '/': ['index.html', 'text/html; charset=utf-8'],
                 '/index.html': ['index.html', 'text/html; charset=utf-8'],
                 '/icon.svg': ['icon.svg', 'image/svg+xml'],
@@ -174,12 +174,12 @@ function createBridge({
                 '/robots.txt': ['robots.txt', 'text/plain; charset=utf-8'],
                 '/sitemap.xml': ['sitemap.xml', 'application/xml; charset=utf-8']
             }[url.pathname];
-            if (estatico) {
-                const f = path.join(__dirname, '..', 'web', estatico[0]);
+            if (staticFile) {
+                const f = path.join(__dirname, '..', 'web', staticFile[0]);
                 // La lista de arriba es cerrada: no se compone una ruta con lo que venga de
                 // fuera, así que no hay forma de pedir un archivo que no esté en ella.
                 if (fs.existsSync(f)) {
-                    res.writeHead(200, { 'content-type': estatico[1], 'cache-control': 'public, max-age=600' });
+                    res.writeHead(200, { 'content-type': staticFile[1], 'cache-control': 'public, max-age=600' });
                     return res.end(fs.readFileSync(f));
                 }
             }
@@ -194,16 +194,16 @@ function createBridge({
             // La URL de retorno se compara ENTERA con las registradas: un prefijo deja
             // colar `?next=` y con eso el código se va a otra parte.
             if (!Array.isArray(client.redirect_uris) || !client.redirect_uris.includes(redirect_uri)) {
-                return json(res, 400, { error: 'invalid_request', error_description: 'redirect_uri no registrada' });
+                return json(res, 400, { error: 'invalid_request', error_description: 'redirect_uri not registered' });
             }
             const challenge = url.searchParams.get('code_challenge') || '';
             if (url.searchParams.get('code_challenge_method') !== 'S256' || challenge.length < 43) {
-                return json(res, 400, { error: 'invalid_request', error_description: 'PKCE S256 obligatorio' });
+                return json(res, 400, { error: 'invalid_request', error_description: 'PKCE S256 required' });
             }
-            const pedidos = String(url.searchParams.get('scope') || 'openid').split(/\s+/).filter(Boolean);
+            const requested = String(url.searchParams.get('scope') || 'openid').split(/\s+/).filter(Boolean);
             const scopes = ['id:whoami']
-                .concat(pedidos.includes('profile') ? ['profile:name', 'profile:avatar'] : [])
-                .concat(pedidos.includes('email') ? ['profile:email'] : []);
+                .concat(requested.includes('profile') ? ['profile:name', 'profile:avatar'] : [])
+                .concat(requested.includes('email') ? ['profile:email'] : []);
             res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
             return res.end(authorizePage({
                 issuer: ISSUER, vaultUrl: VAULT_URL,
@@ -222,7 +222,7 @@ function createBridge({
             const { verifyAssertion } = await import('@dotrino/identity/assertion');
             const { pubkeyId } = await import('@dotrino/identity/keyid');
             const v = await verifyAssertion(b.assertion, { audience: ISSUER, nonce: b.nonce });
-            if (!v.ok) return json(res, 401, { error: 'access_denied', error_description: 'la prueba no vale: ' + v.reason });
+            if (!v.ok) return json(res, 401, { error: 'access_denied', error_description: 'the assertion is not valid: ' + v.reason });
 
             sweep();
             const code = b64url(crypto.randomBytes(32));
@@ -249,7 +249,7 @@ function createBridge({
             if (!rec || rec.exp <= Date.now()) return json(res, 400, { error: 'invalid_grant' });
             if (p.grant_type !== 'authorization_code') return json(res, 400, { error: 'unsupported_grant_type' });
             if (p.client_id !== rec.client_id || p.redirect_uri !== rec.redirect_uri) return json(res, 400, { error: 'invalid_grant' });
-            if (!pkceOk(p.code_verifier, rec.challenge)) return json(res, 400, { error: 'invalid_grant', error_description: 'PKCE no cuadra' });
+            if (!pkceOk(p.code_verifier, rec.challenge)) return json(res, 400, { error: 'invalid_grant', error_description: 'PKCE verifier does not match' });
 
             const now = Math.floor(Date.now() / 1000);
             const payload = {
