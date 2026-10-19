@@ -36,6 +36,6 @@
     "@dotrino/identity": ">=0.86.0"
   },
   "devDependencies": {
-    "@dotrino/identity": "0.121.6"
+    "@dotrino/identity": "0.121.7"
   }
 }
