@@ -39,7 +39,7 @@ test('la prueba de otra aplicación no sirve en la mía', async () => {
   const assertion = await c.id.requestAssertion({ audience: 'https://otra.ejemplo.com', nonce, scopes: ['id:whoami'] })
   const v = await verifyLogin(assertion, { audience: MY_APP, nonce })
   assert.equal(v.ok, false)
-  assert.equal(v.reason, 'otro-destinatario')
+  assert.equal(v.reason, 'other-audience')
   c.limpia()
 })
 
@@ -48,6 +48,6 @@ test('sin decir quién eres tú, o con otro reto, no se juzga', async () => {
   const nonce = newAssertionNonce()
   const assertion = await c.id.requestAssertion({ audience: MY_APP, nonce, scopes: ['id:whoami'] })
   assert.equal((await verifyLogin(assertion, { nonce })).reason, 'no-audience')
-  assert.equal((await verifyLogin(assertion, { audience: MY_APP, nonce: 'otro' })).reason, 'otro-reto')
+  assert.equal((await verifyLogin(assertion, { audience: MY_APP, nonce: 'otro' })).reason, 'other-nonce')
   c.limpia()
 })

@@ -125,7 +125,7 @@ test('una prueba dirigida a OTRO no entra aquí', async () => {
   const { assertion } = await assertionFor(nonce, 'https://sso.otracosa.com')
   const r = await complete(p.base, { assertion, nonce, client_id: 'app-de-ejemplo', redirect_uri: REDIRECT_URI, challenge: 'x'.repeat(43) })
   assert.equal(r.status, 401)
-  assert.match((await r.json()).error_description, /otro-destinatario/)
+  assert.match((await r.json()).error_description, /other-audience/)
   p.close()
 })
 
