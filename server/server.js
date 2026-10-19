@@ -326,8 +326,8 @@ function createBridge({
             const { verifyJwt } = require('./jwt.js');
             const claims = verifyJwt(tok, crypto.createPublicKey(key));
             if (!claims || claims.exp * 1000 <= Date.now()) return json(res, 401, { error: 'invalid_token' });
-            const { iss, aud, iat, exp, nonce, ...resto } = claims;
-            return json(res, 200, resto);
+            const { iss, aud, iat, exp, nonce, ...rest } = claims;
+            return json(res, 200, rest);
         }
 
         return json(res, 404, { error: 'not_found' });
