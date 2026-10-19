@@ -131,7 +131,7 @@ document.getElementById('go').addEventListener('click', async () => {
     // arreglos entran solos. La minor sí hay que subirla a mano al usar algo nuevo —
     // onBehalfOf llegó en 0.87 y con el pin anterior se ignoraba en silencio.
     // (Sin acentos graves aquí dentro: esto vive en una plantilla y los cerraría.)
-    const mod = await import('https://cdn.jsdelivr.net/npm/@dotrino/identity@0.87/+esm');
+    const mod = await import('https://cdn.jsdelivr.net/npm/@dotrino/identity@0.121/+esm');
     newAssertionNonce = mod.newAssertionNonce;
     id = await mod.Identity.connect({ vaultUrl: CFG.vault });
   } catch (e) {
