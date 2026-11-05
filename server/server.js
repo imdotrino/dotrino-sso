@@ -34,22 +34,35 @@ const PORT = Number(process.env.PORT || 8093);
  * el nombre que se guarda aquí es el que el usuario ve en la pantalla de permiso, y dejar
  * que cualquiera se anuncie con el nombre que quiera es regalar la mitad de un engaño.
  * (Decisión pendiente en `docs/DISENO.md` §10, resuelta así el 2026-09-06.)
+ *
+ * @typedef {{ client_id: string, name: string, redirect_uris?: string[] }} Client
+ * @param {string} file
+ * @returns {Record<string, Client>}
  */
 function loadClients(file) {
     try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { return {}; }
 }
 
+/**
+ * @param {http.ServerResponse} res
+ * @param {number} status
+ * @param {unknown} obj
+ * @param {Record<string, string>} [extra]
+ */
 const json = (res, status, obj, extra = {}) => {
     res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', 'access-control-allow-origin': '*', ...extra });
     res.end(JSON.stringify(obj));
 };
+/** @type {(req: http.IncomingMessage) => Promise<string>} */
 const readBody = (req) => new Promise((resolve, reject) => {
     let b = ''; req.on('data', (c) => { b += c; if (b.length > 64 * 1024) reject(new Error('body too large')); });
     req.on('end', () => resolve(b)); req.on('error', reject);
 });
+/** @type {(s: string) => Record<string, string>} */
 const form = (s) => Object.fromEntries(new URLSearchParams(s));
 
 /** PKCE S256: el único método que se acepta. `plain` no protege de nada. */
+/** @type {(verifier: unknown, challenge: string) => boolean} */
 const pkceOk = (verifier, challenge) =>
     typeof verifier === 'string' && verifier.length >= 43 &&
     b64url(crypto.createHash('sha256').update(verifier).digest()) === challenge;
@@ -60,6 +73,7 @@ const pkceOk = (verifier, challenge) =>
  * cuando no llega a la bóveda): el `error_description` sigue en inglés, para quien integra,
  * y nunca se enseña al usuario.
  */
+/** @type {Record<'es' | 'en', { title: string, wants: string, promise: string, go: string, asking: string, errors: Record<string, string> }>} */
 const PAGE_COPY = {
     es: {
         title: 'Entrar con Dotrino',
@@ -92,9 +106,14 @@ const PAGE_COPY = {
 };
 
 /** El idioma de la página, de la cabecera Accept-Language: español si lo pide, si no inglés. */
+/** @type {(acceptLanguage: string | undefined) => 'es' | 'en'} */
 const pageLang = (acceptLanguage) => /^\s*es\b/i.test(String(acceptLanguage || '')) ? 'es' : 'en';
 
-/** La página que habla con la bóveda. Se sirve desde aquí para que no haya nada que instalar. */
+/**
+ * La página que habla con la bóveda. Se sirve desde aquí para que no haya nada que instalar.
+ * @param {{ issuer: string, vaultUrl: string, client: Client, state: string, nonceIn: string, scopes: string[], redirect_uri: string, challenge: string, lang: 'es' | 'en' }} opts
+ * @returns {string}
+ */
 function authorizePage({ issuer, vaultUrl, client, state, nonceIn, scopes, redirect_uri, challenge, lang }) {
     const t = PAGE_COPY[lang];
     if (!t) throw new Error('authorizePage: unknown lang ' + lang);
@@ -159,7 +178,10 @@ document.getElementById('go').addEventListener('click', async () => {
 });
 </script></body></html>`;
 }
-const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+/** @type {Record<string, string>} */
+const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+/** @type {(s: unknown) => string} */
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
 
 /**
  * UN PUENTE, con su configuración y sus códigos propios.
@@ -167,6 +189,8 @@ const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', 
  * Es una factoría y no un módulo con estado global porque así se puede levantar más de uno
  * —en las pruebas, o un mismo proceso sirviendo dos dominios— y porque un `require` que
  * cachea un servidor ya cerrado es un fallo que solo aparece en el segundo test.
+ *
+ * @param {{ issuer?: string, keyFile?: string, clientsFile?: string, vaultUrl?: string, codeTtlMs?: number, tokenTtlS?: number, signingKey?: crypto.KeyObject | null }} [opts]
  */
 function createBridge({
     issuer,
@@ -185,11 +209,12 @@ function createBridge({
     const key = signingKey || loadOrCreateKey(keyFile);
 
     /** Códigos en vuelo. En memoria y con vencimiento de segundos: no hay nada que filtrar. */
+    /** @type {Map<string, { client_id: string, redirect_uri: string, challenge: string, sub: string, pubkey: string, claims: Record<string, any>, scopes: string[], nonceIn: string, exp: number }>} */
     const codes = new Map();
     const sweep = () => { const t = Date.now(); for (const [k, v] of codes) if (v.exp <= t) codes.delete(k); };
 
     const server = http.createServer(async (req, res) => {
-    const url = new URL(req.url, ISSUER || `http://localhost:${PORT}`);
+    const url = new URL(req.url || '/', ISSUER || `http://localhost:${PORT}`);
     try {
         if (req.method === 'OPTIONS') return json(res, 204, {});
 
@@ -332,7 +357,7 @@ function createBridge({
 
         return json(res, 404, { error: 'not_found' });
         } catch (e) {
-            return json(res, 500, { error: 'server_error', error_description: e?.message || String(e) });
+            return json(res, 500, { error: 'server_error', error_description: /** @type {Error} */ (e)?.message || String(e) });
         }
     });
 
@@ -365,7 +390,7 @@ function main() {
 function startUpdateWatch() {
     import('@dotrino/update/deps')
         .then(({ watchDependencies }) => watchDependencies({ dir: __dirname, name: 'sso' }))
-        .catch((e) => console.error('[update] could not start the watch:', e.code || e.message));
+        .catch((/** @type {Error & { code?: string }} */ e) => console.error('[update] could not start the watch:', e.code || e.message));
 }
 
 if (require.main === module) main();

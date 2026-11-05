@@ -13,7 +13,9 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
+/** @type {(buf: Uint8Array) => string} */
 const b64url = (buf) => Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+/** @type {(obj: unknown) => string} */
 const b64urlJson = (obj) => b64url(Buffer.from(JSON.stringify(obj), 'utf8'));
 
 /**
@@ -21,6 +23,8 @@ const b64urlJson = (obj) => b64url(Buffer.from(JSON.stringify(obj), 'utf8'));
  *
  * Es lo ÚNICO que el puente custodia: no hay llaves de usuario aquí, y por eso un
  * compromiso de este servicio no filtra un directorio de nadie — solo obliga a rotar esto.
+ * @param {string} file
+ * @returns {crypto.KeyObject}
  */
 function loadOrCreateKey(file) {
     if (fs.existsSync(file)) {
@@ -34,19 +38,31 @@ function loadOrCreateKey(file) {
     return privateKey;
 }
 
-/** El `kid`: huella de la pública, para que quien verifique sepa cuál de las llaves usar. */
+/**
+ * El `kid`: huella de la pública, para que quien verifique sepa cuál de las llaves usar.
+ * @param {crypto.KeyObject} privateKey
+ * @returns {string}
+ */
 function keyId(privateKey) {
     const jwk = crypto.createPublicKey(privateKey).export({ format: 'jwk' });
     return crypto.createHash('sha256').update(JSON.stringify({ crv: jwk.crv, kty: jwk.kty, x: jwk.x, y: jwk.y })).digest('hex').slice(0, 16);
 }
 
-/** El JWKS que se publica: solo la parte pública, nunca la otra. */
+/**
+ * El JWKS que se publica: solo la parte pública, nunca la otra.
+ * @param {crypto.KeyObject} privateKey
+ */
 function jwks(privateKey) {
     const jwk = crypto.createPublicKey(privateKey).export({ format: 'jwk' });
     return { keys: [{ kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y, use: 'sig', alg: 'ES256', kid: keyId(privateKey) }] };
 }
 
-/** Firma un `id_token`. La firma va en formato P1363 (r||s), que es lo que pide JOSE. */
+/**
+ * Firma un `id_token`. La firma va en formato P1363 (r||s), que es lo que pide JOSE.
+ * @param {Record<string, unknown>} payload
+ * @param {crypto.KeyObject} privateKey
+ * @returns {string}
+ */
 function signJwt(payload, privateKey) {
     const header = { alg: 'ES256', typ: 'JWT', kid: keyId(privateKey) };
     const data = b64urlJson(header) + '.' + b64urlJson(payload);
@@ -54,7 +70,12 @@ function signJwt(payload, privateKey) {
     return data + '.' + b64url(sig);
 }
 
-/** Verificar el propio token, que es lo que hacen los tests y quien integre sin librería. */
+/**
+ * Verificar el propio token, que es lo que hacen los tests y quien integre sin librería.
+ * @param {unknown} token
+ * @param {crypto.KeyObject} publicKeyLike la pública, o la privada (de ella se saca)
+ * @returns {Record<string, any> | null} los claims, o null si la firma no cuadra
+ */
 function verifyJwt(token, publicKeyLike) {
     const parts = String(token || '').split('.');
     if (parts.length !== 3) return null;

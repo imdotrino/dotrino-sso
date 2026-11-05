@@ -16,7 +16,8 @@
   ],
   "scripts": {
     "test": "node --test \"test/*.test.js\"",
-    "start": "node server/server.js"
+    "start": "node server/server.js",
+    "type-check": "tsc --noEmit"
   },
   "keywords": [
     "dotrino",
@@ -36,6 +37,8 @@
     "@dotrino/identity": ">=0.86.0"
   },
   "devDependencies": {
-    "@dotrino/identity": "0.121.7"
+    "@dotrino/identity": "0.121.7",
+    "@types/node": "22.20.1",
+    "typescript": "5.9.3"
   }
 }

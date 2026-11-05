@@ -20,6 +20,10 @@ export { newAssertionNonce }
  * son obligatorios, y sin ellos no hay nada que comparar. Devuelve `{ ok, profileId,
  * claims }` — `profileId` es el identificador estable del usuario, el mismo en todas tus
  * pantallas y sin ninguna base de datos central que los relacione.
+ *
+ * @param {unknown} assertion la prueba tal como llegó del navegador
+ * @param {{ audience?: string, nonce?: string, now?: number }} [opts]
+ * @returns {Promise<{ ok: true, profileId: string, claims: Record<string, unknown>, scopes: string[], expiresAt: number } | { ok: false, reason: string }>}
  */
 export async function verifyLogin (assertion, { audience, nonce, now } = {}) {
   const v = await verifyAssertion(assertion, { audience, nonce, now })
@@ -43,6 +47,7 @@ export async function verifyLogin (assertion, { audience, nonce, now } = {}) {
  * // …mándalo a tu backend y allí: verifyLogin(prueba, { audience, nonce })
  * ```
  */
+/** @type {readonly string[]} */
 export const LOGIN_SCOPES = Object.freeze(['id:whoami'])
 
 export default { verifyLogin, newAssertionNonce, LOGIN_SCOPES }
